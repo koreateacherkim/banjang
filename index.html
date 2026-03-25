@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>학급 선거 관리 시스템</title>
+    <title>신나는 반장선거</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&display=swap');
@@ -52,11 +52,11 @@
             pointer-events: none;
         }
 
-        /* 개표현황 그리드 최적화: 가로로 길게 채우기 */
+        /* 개표현황 그리드: 더 좁은 화면에서도 꽉 차게 */
         .voting-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 0.75rem;
             height: 100%;
         }
 
@@ -74,13 +74,13 @@
             z-index: 100000;
         }
 
-        /* 분야별 섹션이 높이를 나눠갖도록 설정 */
+        /* 분야별 섹션 높이 자동 분배 */
         .role-section {
             display: flex;
             flex-direction: column;
             flex: 1;
             min-height: 0;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
         }
     </style>
 </head>
@@ -91,7 +91,7 @@
         <div class="flex items-center gap-4">
             <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-200">V</div>
             <div>
-                <h1 class="text-xl font-black gradient-text tracking-tighter leading-none uppercase">Election Dashboard</h1>
+                <h1 class="text-xl font-black gradient-text tracking-tighter leading-none uppercase">신나는 반장선거</h1>
                 <p class="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mt-1">개발자: 가치있는 미래교육연구소 대표 김병찬</p>
             </div>
         </div>
@@ -143,18 +143,18 @@
             </div>
         </section>
 
-        <!-- Step 2: Voting (전체화면 꽉 차게 최적화) -->
-        <section id="view-voting" class="hidden h-full flex flex-col p-6 bg-slate-50 animate-in fade-in zoom-in duration-300 overflow-hidden">
-            <div class="flex justify-between items-center mb-4 shrink-0 px-2">
+        <!-- Step 2: Voting (한 화면에 모든 버튼이 보이도록 초슬림 레이아웃) -->
+        <section id="view-voting" class="hidden h-full flex flex-col p-4 bg-slate-50 animate-in fade-in zoom-in duration-300 overflow-hidden">
+            <div class="flex justify-between items-center mb-2 shrink-0 px-2">
                 <div>
-                    <h2 class="text-3xl font-black text-slate-900 tracking-tighter leading-none">실시간 개표 현황</h2>
-                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">영역 클릭 시 +1표 득표 | 우측 상단 '종료 및 발표' 버튼으로 선거를 마칩니다.</p>
+                    <h2 class="text-2xl font-black text-slate-900 tracking-tighter leading-none">실시간 개표 현황</h2>
+                    <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-2">이름 또는 버튼 클릭 시 득표 기록 | 우측 상단 버튼으로 선거를 마칩니다.</p>
                 </div>
-                <button onclick="showEndConfirm()" class="bg-red-500 text-white px-12 py-5 rounded-3xl font-black hover:bg-red-600 shadow-2xl shadow-red-100 active:scale-95 transition-all text-xl border-b-4 border-red-700">종료 및 발표</button>
+                <button onclick="showEndConfirm()" class="bg-red-500 text-white px-10 py-4 rounded-2xl font-black hover:bg-red-600 shadow-xl shadow-red-100 active:scale-95 transition-all text-lg border-b-4 border-red-700 leading-none">종료 및 발표</button>
             </div>
             
-            <div id="voting-content" class="flex-1 flex flex-col gap-4 overflow-hidden">
-                <!-- 동적으로 생성되는 후보자 카드 영역 (Flex로 높이 분배) -->
+            <div id="voting-content" class="flex-1 flex flex-col gap-2 overflow-hidden">
+                <!-- 분야별 그룹이 여기에 렌더링됨 -->
             </div>
         </section>
 
@@ -241,7 +241,6 @@
         function parseCSV(csv) {
             const lines = csv.split(/\r?\n/).filter(l => l.trim() !== "");
             candidates = lines.slice(1).map((line, idx) => {
-                // 수정된 정규 표현식 (Unterminated group 오류 수정)
                 const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.replace(/"/g, '').trim());
                 return { 
                     id: idx, role: cols[0] || '기타', no: cols[1] || '0', 
@@ -254,14 +253,14 @@
         function loadSampleData() {
             candidates = [
                 { id: 1, role: '반장', no: 1, name: '김수진', gender: '여', pledge: '모두가 즐거운 학교! 소통하는 반장이 되겠습니다.', votes: 0 },
-                { id: 2, role: '반장', no: 2, name: '김우빈', gender: '남', pledge: '깨끗한 교실! 즐거운 점심! 급식 실 개선을 약속합니다.', votes: 0 },
-                { id: 3, role: '반장', no: 3, name: '차연표', gender: '남', pledge: '행복 가득! 우리 반을 위해 기꺼이 앞장서겠습니다.', votes: 0 },
-                { id: 4, role: '부반장_여자', no: 1, name: '신애라', gender: '여', pledge: '격려와 배려가 넘치는 선한 영향력을 실천하겠습니다.', votes: 0 },
-                { id: 5, role: '부반장_여자', no: 2, name: '고소영', gender: '여', pledge: '학급 고민을 나누고 도와주는 든든한 친구가 되겠습...', votes: 0 },
-                { id: 6, role: '부반장_여자', no: 3, name: '아이유', gender: '여', pledge: '밝고 활기찬 학급 분위기를 위해 다양한 이벤트를...', votes: 0 },
-                { id: 7, role: '부반장_남자', no: 1, name: '유해진', gender: '남', pledge: '남학생들의 의견을 잘 전달하는 발로 뛰는 일꾼이...', votes: 0 },
-                { id: 8, role: '부반장_남자', no: 2, name: '이동엽', gender: '남', pledge: '친구들의 고민을 들어주고 함께 해결하는 친구 같은...', votes: 0 },
-                { id: 9, role: '부반장_남자', no: 3, name: '차태현', gender: '남', pledge: '운동 기구 대여 시스템을 개선하여 즐거운 점심시간을...', votes: 0 }
+                { id: 2, role: '반장', no: 2, name: '김우빈', gender: '남', pledge: '깨끗한 교실 환경 조성과 급식 질 개선을 약속합니다.', votes: 0 },
+                { id: 3, role: '반장', no: 3, name: '차인표', gender: '남', pledge: '체육 대회와 현장 학습 기획에 앞장서겠습니다.', votes: 0 },
+                { id: 4, role: '부반장_여자', no: 1, name: '신애라', gender: '여', pledge: '여학생들의 건의 사항을 적극적으로 수렴하겠습니다.', votes: 0 },
+                { id: 5, role: '부반장_여자', no: 2, name: '고소영', gender: '여', pledge: '학업 고민을 나누고 도와주는 든든한 멘토가 되겠습니다.', votes: 0 },
+                { id: 6, role: '부반장_여자', no: 3, name: '아이유', gender: '여', pledge: '밝고 활기찬 학급 분위기를 위해 다양한 이벤트를 열겠습니다.', votes: 0 },
+                { id: 7, role: '부반장_남자', no: 1, name: '유해진', gender: '남', pledge: '남학생들과 여학생들 간 소통의 창구가 되는 반장이 되겠...', votes: 0 },
+                { id: 8, role: '부반장_남자', no: 2, name: '이동엽', gender: '남', pledge: '친구들의 고민을 들어주고 함께 해결하는 친구 같은 반장...', votes: 0 },
+                { id: 9, role: '부반장_남자', no: 3, name: '차태현', pledge: '운동 기구 대여 시스템을 개선하여 즐거운 점심시간을...', votes: 0 }
             ];
             renderCandidateTable();
             showModal('알림', '샘플 데이터가 적용되었습니다.');
@@ -290,21 +289,21 @@
             candidates.forEach(c => { if (!groups[c.role]) groups[c.role] = []; groups[c.role].push(c); });
             
             votingContent.innerHTML = Object.entries(groups).map(([role, members]) => `
-                <div class="role-section bg-white rounded-[2rem] p-4 border border-slate-200 shadow-md">
-                    <div class="flex items-center gap-4 mb-2 px-4 shrink-0">
-                        <span class="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest leading-none">${role}</span>
+                <div class="role-section bg-white rounded-[1.5rem] p-3 border border-slate-200 shadow-sm flex flex-col">
+                    <div class="flex items-center gap-2 mb-2 px-2 shrink-0">
+                        <span class="px-3 py-1 bg-slate-900 text-white text-[9px] font-black rounded-lg uppercase tracking-widest leading-none">${role}</span>
                         <div class="h-px flex-1 bg-slate-100"></div>
                     </div>
                     <div class="voting-container flex-1 overflow-y-auto no-scrollbar p-1">
                         ${members.map(c => `
-                            <div class="bg-slate-50 rounded-[1.25rem] p-4 border border-slate-100 flex flex-col justify-between hover:bg-white hover:border-blue-400 transition-all group cursor-pointer" onclick="updateVote(${c.id}, 1)">
+                            <div class="bg-slate-50 rounded-[1rem] p-3 border border-slate-100 flex flex-col justify-between hover:bg-white hover:border-blue-400 transition-all group cursor-pointer" onclick="updateVote(${c.id}, 1)">
                                 <div class="mb-2">
-                                    <div class="flex justify-between items-start mb-1">
-                                        <span class="text-[9px] font-black text-slate-400 tracking-tighter uppercase leading-none">No. ${c.no}</span>
+                                    <div class="flex justify-between items-start mb-0.5">
+                                        <span class="text-[8px] font-black text-slate-400 tracking-tighter uppercase leading-none">No. ${c.no}</span>
                                         <span class="text-3xl font-black text-slate-900 group-hover:text-blue-600 tabular-nums transition-colors leading-none" id="vote-val-${c.id}">${c.votes}</span>
                                     </div>
                                     <h4 class="text-xl font-black text-slate-800 truncate leading-tight">${c.name}</h4>
-                                    <p class="text-[9px] text-slate-500 font-semibold line-clamp-1 italic mt-1">"${c.pledge}"</p>
+                                    <p class="text-[9px] text-slate-500 font-semibold line-clamp-1 italic mt-1 leading-tight">"${c.pledge}"</p>
                                 </div>
                                 <div class="flex gap-2 shrink-0" onclick="event.stopPropagation()">
                                     <button onclick="updateVote(${c.id}, 1)" class="flex-1 bg-slate-900 text-white py-2 rounded-xl font-black hover:bg-blue-600 active:scale-95 transition-all text-[10px] shadow-lg leading-none">+1 득표</button>
