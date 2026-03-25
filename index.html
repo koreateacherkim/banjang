@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>학급 선거 관리 시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&display=swap');
+        
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #f8fafc;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .gradient-text {
+            background: linear-gradient(90deg, #2563eb, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* 당선자 카드 애니메이션 */
+        .winner-card-anim {
+            animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+        }
+
+        @keyframes slideUpFade {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .winner-glow {
+            box-shadow: 0 0 25px rgba(250, 204, 21, 0.4);
+            animation: glowPulse 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glowPulse {
+            from { box-shadow: 0 0 15px rgba(250, 204, 21, 0.3); }
+            to { box-shadow: 0 0 45px rgba(250, 204, 21, 0.7); }
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            z-index: 200000;
+            pointer-events: none;
+        }
+
+        /* 개표현황 초소형 그리드 최적화 */
+        .voting-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 0.4rem;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .modal-overlay {
+            background-color: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+        }
+
+        /* 당선자 화면 레이어 관리 */
+        #view-result {
+            display: none;
+            z-index: 100000;
+        }
+    </style>
+</head>
+<body class="flex flex-col text-slate-800">
+
+    <!-- Header (컴팩트하게 축소) -->
+    <header class="bg-white border-b border-slate-200 px-6 py-1.5 flex justify-between items-center shrink-0 z-50 shadow-sm">
+        <div class="flex items-center gap-2">
+            <div class="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white font-black text-sm">V</div>
+            <div>
+                <h1 class="text-base font-black gradient-text tracking-tighter leading-none uppercase">Election Dashboard</h1>
+                <p class="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">개발자: 가치있는 미래교육연구소 대표 김병찬</p>
+            </div>
+        </div>
+        <div id="status-tag" class="text-[9px] font-bold px-2 py-0.5 bg-slate-100 rounded-full text-slate-500 border border-slate-200 uppercase tracking-tighter">Standby</div>
+    </header>
+
+    <main class="flex-1 overflow-hidden relative">
+        
+        <!-- Step 1: Setup -->
+        <section id="view-setup" class="h-full overflow-y-auto p-4 no-scrollbar bg-slate-50">
+            <div class="max-w-4xl mx-auto space-y-4">
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-black mb-4 flex items-center gap-3 text-slate-800">
+                        <span class="w-7 h-7 bg-blue-600 text-white rounded-lg flex items-center justify-center text-[10px] shadow-md">01</span>
+                        데이터 로드
+                    </h2>
+                    <div class="flex gap-2">
+                        <input type="text" id="data-url" placeholder="구글 시트 URL을 입력하세요" 
+                               class="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-xs font-medium">
+                        <button onclick="loadGoogleSheet()" id="btn-load-data" class="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-black active:scale-95 transition-all text-xs shadow-xl shadow-slate-200">불러오기</button>
+                        <button onclick="loadSampleData()" class="bg-white border border-slate-200 text-slate-500 px-4 py-2.5 rounded-xl font-bold hover:bg-slate-50 text-xs transition-all">샘플</button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-black flex items-center gap-3 text-slate-800">
+                            <span class="w-7 h-7 bg-purple-600 text-white rounded-lg flex items-center justify-center text-[10px] shadow-md">02</span>
+                            후보자 명단
+                        </h2>
+                        <button onclick="startElection()" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl font-black hover:bg-blue-700 shadow-xl shadow-blue-200 active:scale-95 transition-all text-xs">선거 시작</button>
+                    </div>
+                    <div class="overflow-hidden rounded-xl border border-slate-100">
+                        <table class="w-full text-[11px] text-left">
+                            <thead class="bg-slate-50 text-slate-500 font-bold">
+                                <tr>
+                                    <th class="p-3">분야</th>
+                                    <th class="p-3 text-center">기호</th>
+                                    <th class="p-3">이름</th>
+                                    <th class="p-4">공약</th>
+                                </tr>
+                            </thead>
+                            <tbody id="candidate-table-body" class="divide-y divide-slate-50 font-medium">
+                                <tr><td colspan="4" class="p-10 text-center text-slate-400 font-medium italic">데이터를 불러와 주세요.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 2: Voting (한 화면에 최적화) -->
+        <section id="view-voting" class="hidden h-full flex flex-col p-3 bg-slate-50 animate-in fade-in zoom-in duration-300 overflow-hidden">
+            <div class="flex justify-between items-end mb-2 shrink-0 px-1">
+                <div>
+                    <h2 class="text-xl font-black text-slate-900 tracking-tighter leading-none">개표 현황</h2>
+                    <p class="text-slate-400 text-[9px] font-bold uppercase tracking-wider mt-1.5">클릭: +1표 | 우측 버튼: -1표</p>
+                </div>
+                <button onclick="showEndConfirm()" class="bg-red-500 text-white px-8 py-2.5 rounded-xl font-black hover:bg-red-600 shadow-lg shadow-red-100 active:scale-95 transition-all text-sm border-b-2 border-red-700">종료 및 발표</button>
+            </div>
+            
+            <div id="voting-content" class="flex-1 overflow-y-auto no-scrollbar space-y-2 pb-1">
+                <!-- 동적으로 생성되는 후보자 카드 -->
+            </div>
+        </section>
+
+        <!-- Step 3: All Winners Result Overlay -->
+        <section id="view-result" class="fixed inset-0 modal-overlay flex-col items-center justify-center p-6 overflow-hidden">
+            <div class="w-full max-w-6xl flex flex-col h-full animate-in fade-in zoom-in duration-500">
+                <div class="text-center mb-6 shrink-0">
+                    <div class="mb-3 inline-block px-3 py-0.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-[9px] font-black tracking-[0.3em] uppercase animate-pulse">2024 Election Results</div>
+                    <h3 class="text-white text-3xl font-black tracking-tight mb-1">당선을 진심으로 축하합니다!</h3>
+                    <p class="text-white/40 font-medium text-xs">각 분야별 최종 당선자 명단입니다.</p>
+                </div>
+                
+                <div id="winners-container" class="flex-1 overflow-y-auto no-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4 content-center">
+                    <!-- 당선자 카드 -->
+                </div>
+
+                <div class="mt-6 mb-2 flex justify-center gap-3 shrink-0">
+                    <button onclick="backToVoting()" class="bg-slate-800 text-white px-8 py-3 rounded-xl font-black hover:bg-slate-700 active:scale-95 transition-all text-base border border-slate-700">개표현황으로</button>
+                    <button onclick="resetElection()" class="bg-white text-slate-900 px-8 py-3 rounded-xl font-black hover:bg-slate-100 active:scale-95 transition-all text-base shadow-xl">새 선거 시작</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Custom Modal -->
+        <div id="custom-modal" class="hidden fixed inset-0 z-[200000] modal-overlay flex items-center justify-center p-6">
+            <div class="bg-white rounded-2xl p-6 max-w-xs w-full shadow-2xl animate-in fade-in zoom-in duration-200 text-center">
+                <h4 id="modal-title" class="text-lg font-black mb-1">알림</h4>
+                <p id="modal-body" class="text-slate-500 text-xs mb-6 font-medium leading-relaxed"></p>
+                <div id="modal-footer" class="flex gap-2">
+                    <button id="modal-btn-cancel" onclick="closeModal()" class="flex-1 py-2.5 bg-slate-100 text-slate-500 rounded-xl font-bold hover:bg-slate-200 transition-all text-xs">취소</button>
+                    <button id="modal-btn-ok" class="flex-1 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all text-xs">확인</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        let candidates = [];
+        const setupView = document.getElementById('view-setup');
+        const votingView = document.getElementById('view-voting');
+        const resultView = document.getElementById('view-result');
+        const tableBody = document.getElementById('candidate-table-body');
+        const votingContent = document.getElementById('voting-content');
+        const winnersContainer = document.getElementById('winners-container');
+
+        function showModal(title, body, onOk, isConfirm = false) {
+            const modal = document.getElementById('custom-modal');
+            const btnCancel = document.getElementById('modal-btn-cancel');
+            const btnOk = document.getElementById('modal-btn-ok');
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-body').innerText = body;
+            btnCancel.style.display = isConfirm ? 'block' : 'none';
+            btnOk.onclick = () => { closeModal(); if(onOk) onOk(); };
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() { document.getElementById('custom-modal').classList.add('hidden'); }
+
+        function transformToCsvUrl(url) {
+            if (url.includes('/edit')) {
+                const base = url.split('/edit')[0];
+                const gid = url.match(/gid=(\d+)/)?.[1] || '0';
+                return `${base}/export?format=csv&gid=${gid}`;
+            }
+            return url.includes('/pubhtml') ? url.replace('/pubhtml', '/pub?output=csv') : url;
+        }
+
+        async function loadGoogleSheet() {
+            const rawUrl = document.getElementById('data-url').value.trim();
+            if (!rawUrl) return showModal('오류', 'URL을 입력해주세요.');
+            try {
+                const response = await fetch(transformToCsvUrl(rawUrl));
+                const text = await response.text();
+                if (text.includes('<!DOCTYPE')) throw new Error();
+                parseCSV(text);
+                renderCandidateTable();
+                showModal('성공', '후보자 데이터를 성공적으로 불러왔습니다.');
+            } catch (e) {
+                showModal('실패', '공유 설정을 다시 확인해 주세요.');
+            }
+        }
+
+        function parseCSV(csv) {
+            const lines = csv.split(/\r?\n/).filter(l => l.trim() !== "");
+            candidates = lines.slice(1).map((line, idx) => {
+                const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.replace(/"/g, '').trim());
+                return { 
+                    id: idx, role: cols[0] || '기타', no: cols[1] || '0', 
+                    name: cols[2] || '미기재', gender: cols[3] || '-', 
+                    pledge: cols[4] || '공약 없음', votes: 0 
+                };
+            });
+        }
+
+        function loadSampleData() {
+            candidates = [
+                { id: 1, role: '반장', no: 1, name: '김민준', gender: '남', pledge: '즐거운 우리 반을 위해 발로 뛰겠습니다!', votes: 0 },
+                { id: 2, role: '반장', no: 2, name: '이서연', gender: '여', pledge: '소통하는 반장이 되겠습니다.', votes: 0 },
+                { id: 3, role: '부반장_남자', no: 1, name: '유해진', gender: '남', pledge: '반장님을 잘 보좌하겠습니다.', votes: 2 },
+                { id: 4, role: '부반장_남자', no: 2, name: '이동엽', gender: '남', pledge: '행복한 교실을 약속합니다.', votes: 4 },
+                { id: 5, role: '부반장_여자', no: 1, name: '차태현', gender: '여', pledge: '깨끗한 환경을 만들겠습니다.', votes: 0 }
+            ];
+            renderCandidateTable();
+            showModal('알림', '샘플 데이터가 적용되었습니다.');
+        }
+
+        function renderCandidateTable() {
+            tableBody.innerHTML = candidates.map(c => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="p-3 font-bold text-blue-600">${c.role}</td>
+                    <td class="p-3 text-center font-black">기호 ${c.no}</td>
+                    <td class="p-3 font-black text-slate-900">${c.name}</td>
+                    <td class="p-3 text-slate-400 italic">"${c.pledge}"</td>
+                </tr>
+            `).join('') || '<tr><td colspan="4" class="p-10 text-center text-slate-400 italic">데이터가 없습니다.</td></tr>';
+        }
+
+        function startElection() {
+            if (!candidates.length) return showModal('알림', '데이터를 먼저 로드하세요.');
+            setupView.classList.add('hidden');
+            votingView.classList.remove('hidden');
+            renderVotingLayout();
+        }
+
+        function renderVotingLayout() {
+            const groups = {};
+            candidates.forEach(c => { if (!groups[c.role]) groups[c.role] = []; groups[c.role].push(c); });
+            votingContent.innerHTML = Object.entries(groups).map(([role, members]) => `
+                <div class="bg-white rounded-2xl p-2 border border-slate-200 shadow-sm">
+                    <div class="flex items-center gap-2 mb-2 px-1">
+                        <span class="px-2 py-0.5 bg-slate-900 text-white text-[8px] font-black rounded uppercase tracking-tighter">${role}</span>
+                        <div class="h-px flex-1 bg-slate-100"></div>
+                    </div>
+                    <div class="voting-container">
+                        ${members.map(c => `
+                            <div class="bg-slate-50 rounded-xl p-2 border border-slate-100 flex flex-col justify-between hover:bg-white hover:border-blue-400 transition-all group">
+                                <div class="mb-1 cursor-pointer" onclick="updateVote(${c.id}, 1)">
+                                    <div class="flex justify-between items-start mb-0.5">
+                                        <span class="text-[8px] font-black text-slate-400 tracking-tighter">기호 ${c.no}</span>
+                                        <span class="text-lg font-black text-slate-900 group-hover:text-blue-600 tabular-nums transition-colors leading-none" id="vote-val-${c.id}">${c.votes}</span>
+                                    </div>
+                                    <h4 class="text-sm font-black text-slate-800 truncate leading-tight">${c.name}</h4>
+                                    <p class="text-[8px] text-slate-400 font-medium line-clamp-1 mt-0.5 italic leading-tight">"${c.pledge}"</p>
+                                </div>
+                                <div class="flex gap-1">
+                                    <button onclick="updateVote(${c.id}, 1)" class="flex-1 bg-slate-900 text-white py-1.5 rounded-lg font-black hover:bg-blue-600 active:scale-95 transition-all text-[9px]">+1 득표</button>
+                                    <button onclick="updateVote(${c.id}, -1)" class="w-8 bg-white text-slate-300 rounded-lg hover:text-red-500 border border-slate-100 active:scale-95 transition-all text-[9px] font-black">-1</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateVote(id, delta) {
+            const idx = candidates.findIndex(c => c.id === id);
+            if (idx === -1) return;
+            candidates[idx].votes = Math.max(0, candidates[idx].votes + delta);
+            const el = document.getElementById(`vote-val-${id}`);
+            if (el) {
+                el.innerText = candidates[idx].votes;
+                el.classList.add(delta > 0 ? 'text-blue-500' : 'text-red-500', 'scale-125');
+                setTimeout(() => el.classList.remove('text-blue-500', 'text-red-500', 'scale-125'), 150);
+            }
+        }
+
+        function showEndConfirm() {
+            showModal('투표 종료', '당선자를 발표하시겠습니까?', executeEndElection, true);
+        }
+
+        function executeEndElection() {
+            const groups = {};
+            candidates.forEach(c => { 
+                if (!groups[c.role]) groups[c.role] = []; 
+                groups[c.role].push(c); 
+            });
+            
+            const winners = Object.entries(groups).map(([role, members]) => {
+                const sorted = [...members].sort((a, b) => b.votes - a.votes);
+                return sorted[0];
+            }).filter(w => w !== undefined);
+
+            winnersContainer.innerHTML = winners.map((w, idx) => `
+                <div class="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-xl winner-card-anim winner-glow" style="animation-delay: ${idx * 0.1}s; opacity: 1;">
+                    <div class="text-blue-600 font-black text-xs mb-3 uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full inline-block border border-blue-100">${w.role}</div>
+                    <div class="text-4xl font-black text-slate-900 mb-4 tracking-tighter">${w.name}</div>
+                    <div class="h-px bg-slate-100 w-full mb-4"></div>
+                    <div class="flex justify-between items-end">
+                        <div class="text-slate-400 text-[9px] font-bold">FINAL VOTES</div>
+                        <div class="text-2xl font-black text-yellow-500">${w.votes}<span class="text-xs ml-0.5 text-slate-400 font-bold">표</span></div>
+                    </div>
+                </div>
+            `).join('');
+
+            resultView.style.display = 'flex';
+            fireConfetti();
+        }
+
+        function fireConfetti() {
+            const colors = ['#facc15', '#3b82f6', '#ef4444', '#7c3aed', '#10b981'];
+            for (let i = 0; i < 150; i++) {
+                const conf = document.createElement('div');
+                conf.className = 'confetti';
+                conf.style.left = Math.random() * 100 + 'vw';
+                conf.style.top = '-20px';
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                conf.style.width = (Math.random() * 8 + 4) + 'px';
+                conf.style.height = conf.style.width;
+                conf.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                document.body.appendChild(conf);
+                conf.animate([
+                    { transform: `translate3d(0, 0, 0) rotate(0deg)`, opacity: 1 },
+                    { transform: `translate3d(${(Math.random()-0.5)*400}px, 100vh, 0) rotate(${Math.random()*1500}deg)`, opacity: 0 }
+                ], { duration: 3000, easing: 'cubic-bezier(0, .9, .1, 1)' }).onfinish = () => conf.remove();
+            }
+        }
+
+        function backToVoting() { resultView.style.display = 'none'; }
+        function resetElection() {
+            resultView.style.display = 'none';
+            votingView.classList.add('hidden');
+            setupView.classList.remove('hidden');
+            candidates.forEach(c => c.votes = 0);
+            renderCandidateTable();
+        }
+    </script>
+</body>
+</html>
